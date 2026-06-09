@@ -92,6 +92,17 @@
   when: "'filesystem:' not in (mcp_list.stdout | default(''))"
   environment: "{{ claude_env }}"
 
+# ccusage (npx) — Claude Code token usage / cost analytics
+- name: Register ccusage MCP
+  ansible.builtin.command: >-
+    claude mcp add --scope {{ mcp_scope }} ccusage
+    -- npx -y @ccusage/mcp@latest
+  register: add_ccusage
+  changed_when: "'Added' in add_ccusage.stdout"
+  failed_when: add_ccusage.rc != 0 and 'already exists' not in (add_ccusage.stderr | default(''))
+  when: "'ccusage:' not in (mcp_list.stdout | default(''))"
+  environment: "{{ claude_env }}"
+
 # --- GitHub MCP: official Claude plugin (matches current setup) ------------
 
 - name: List installed Claude plugins

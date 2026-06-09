@@ -10,13 +10,22 @@ Idempotent provisioning of a complete Claude Code setup on **macOS**.
 | `claude` | Claude Code CLI | `pnpm add -g @anthropic-ai/claude-code` |
 | `python_tools` | `python@3.12`, `uv`, `pipx`, Headroom, spec-kit | Homebrew + pipx + uv |
 | `mcp_servers` | MCP servers (user scope) | `claude mcp add` / plugin |
+| `claude_local` | `claude-local` launcher script + zsh alias | file + blockinfile |
 
 ### MCP servers registered (user scope)
 
-- **codebase-memory** — `codebase-memory-mcp` (reinstalled via pnpm)
+- **codebase-memory** — `codebase-memory-mcp` (via pnpm global)
 - **context7** — `@upstash/context7-mcp` (API key via env)
 - **filesystem** — `@modelcontextprotocol/server-filesystem` (scoped to `~/Documents/Repositories`)
+- **ccusage** — `@ccusage/mcp` (Claude Code token usage / cost analytics)
 - **github** — official Claude plugin `github@claude-plugins-official` (HTTP remote)
+
+### claude-local launcher
+
+`scripts/claude-local` — interactive launcher that runs Claude Code with
+per-project or global MCP data dirs (CBM + Headroom), optional Headroom
+wrapping, and an optional `--dangerously-skip-permissions` toggle. The
+`claude_local` role makes it executable and adds a `claude-local` zsh alias.
 
 ### Python tools
 

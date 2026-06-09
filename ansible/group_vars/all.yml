@@ -37,6 +37,11 @@ context7_api_key: "{{ lookup('env', 'CONTEXT7_API_KEY') | default('', true) }}"
 # Matches the current setup: plugin `github@claude-plugins-official`.
 github_plugin: "github@claude-plugins-official"
 
+# --- claude-local launcher -------------------------------------------------
+# Path to the claude-local script in this repo (relative to repo root).
+claude_local_script: "{{ home_dir }}/Documents/Repositories/claude_configurations/scripts/claude-local"
+claude_local_alias: "claude-local"
+
 # --- Python toolchain ------------------------------------------------------
 brew_python_formula: "python@3.12"
 # uv (astral) — required by spec-kit
@@ -46,6 +51,9 @@ brew_pipx_formula: "pipx"
 
 # --- Headroom (context compression) ----------------------------------------
 headroom_pipx_spec: "headroom-ai[all]"
+# Headroom has a native PyO3 (Rust) extension that only supports Python <= 3.13.
+# Pin pipx to the brew-installed python@3.12 so the build does not pick 3.14.
+headroom_python: "/opt/homebrew/opt/{{ brew_python_formula }}/bin/python3.12"
 
 # --- spec-kit (specify CLI) ------------------------------------------------
 # Pin to a release tag; `latest` resolves the newest GitHub release.

@@ -1,0 +1,106 @@
+#!/usr/bin/env zsh
+# claude-local: launch Claude Code with MCPs configured locally or globally.
+#
+# Data structure:
+#   ~/.claude-mcp-data/
+#   ├── _global/              <- shared across all projects
+#   │   ├── cbm/
+#   │   └── headroom/memory.db
+#   └── <project-name>/       <- one folder per project
+#       ├── cbm/
+#       └── headroom/memory.db
+
+set -e
+
+BASE_DIR="$HOME/.claude-mcp-data"
+
+# --- 1. Use Headroom? ---
+echo ""
+echo "Do you want to use Headroom?"
+echo "  1) Yes"
+echo "  2) No"
+echo -n "> "
+read use_headroom
+
+# --- 2. Local or global scope? ---
+echo ""
+echo "Which data scope?"
+echo "  1) Local  (this project: $(basename "$PWD"))"
+echo "  2) Global (shared across all projects)"
+echo -n "> "
+read scope
+
+# --- 3. Skip permissions? ---
+echo ""
+echo "Run with --dangerously-skip-permissions?"
+echo "  1) Yes  (no permission prompts -- use with caution)"
+echo "  2) No   (default, safe)"
+echo -n "> "
+read skip_perms
+
+# --- 4. Resolve data directory ---
+case "$scope" in
+  1)
+    project_name="${PWD##*/}"
+    data_dir="$BASE_DIR/$project_name"
+    scope_label="LOCAL ($project_name)"
+    ;;
+  2)
+    data_dir="$BASE_DIR/_global"
+    scope_label="GLOBAL"
+    ;;
+  *)
+    echo "Invalid option. Exiting."
+    exit 1
+    ;;
+esac
+
+# --- 5. Resolve claude flags ---
+claude_flags=()
+case "$skip_perms" in
+  1)
+    claude_flags+=("--dangerously-skip-permissions")
+    skip_label="ON"
+    ;;
+  2)
+    skip_label="OFF"
+    ;;
+  *)
+    echo "Invalid option. Exiting."
+    exit 1
+    ;;
+esac
+
+# --- 6. Create directories if missing ---
+mkdir -p "$data_dir/cbm" "$data_dir/headroom"
+
+# --- 7. Export env vars for the MCPs ---
+export CBM_DATA_DIR="$data_dir/cbm"
+export HEADROOM_DB_PATH="$data_dir/headroom/memory.db"
+
+# --- 8. Print config and launch ---
+echo ""
+echo "─────────────────────────────────────────"
+echo "  Scope:        $scope_label"
+echo "  CBM data:     $CBM_DATA_DIR"
+echo "  Headroom DB:  $HEADROOM_DB_PATH"
+echo "  Skip perms:   $skip_label"
+
+case "$use_headroom" in
+  1)
+    echo "  Headroom:     ON (wrap)"
+    echo "─────────────────────────────────────────"
+    echo ""
+    headroom wrap claude -- "${claude_flags[@]}" "$@"
+    ;;
+  2)
+    echo "  Headroom:     OFF"
+    echo "─────────────────────────────────────────"
+    echo ""
+    claude "${claude_flags[@]}" "$@"
+    ;;
+  *)
+    echo "Invalid Headroom option. Exiting."
+    exit 1
+    ;;
+esac

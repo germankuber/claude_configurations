@@ -6,7 +6,8 @@
 #   - sfw           Socket Firewall + shell aliases
 #   - claude        Claude Code (via pnpm global)
 #   - python_tools  python@3.12 + uv + pipx, Headroom, spec-kit
-#   - mcp_servers   codebase-memory, context7, filesystem, github (user scope)
+#   - mcp_servers   codebase-memory, context7, filesystem, ccusage, github (user scope)
+#   - claude_local  claude-local launcher script + zsh alias
 #
 # Run:  ansible-playbook playbook.yml
 # ============================================================================
@@ -32,6 +33,7 @@
     - claude
     - python_tools
     - mcp_servers
+    - claude_local
 
   post_tasks:
     - name: Done

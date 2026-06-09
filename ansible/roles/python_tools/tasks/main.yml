@@ -25,8 +25,8 @@
   changed_when: false
   failed_when: false
 
-- name: Install Headroom via pipx
-  ansible.builtin.command: "pipx install '{{ headroom_pipx_spec }}'"
+- name: Install Headroom via pipx (pinned to Python 3.12)
+  ansible.builtin.command: "pipx install --python {{ headroom_python }} '{{ headroom_pipx_spec }}'"
   register: headroom_install
   changed_when: "'installed package' in headroom_install.stdout | lower"
   when: "'headroom' not in (pipx_list.stdout | default(''))"
