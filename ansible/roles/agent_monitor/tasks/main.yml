@@ -38,8 +38,31 @@
   until: am_health.status is defined and am_health.status in [200, 301, 302]
   failed_when: false
 
+# Install the Agent Monitor hooks into ~/.claude/settings.json so EVERY Claude
+# Code instance forwards events to the dashboard. The installer MERGES into the
+# existing hooks (push, dedup by hook-handler.js) — it does NOT overwrite the
+# codebase-memory / rtk hooks already present. Idempotent.
+- name: Resolve a usable node binary for the hook installer
+  ansible.builtin.shell:
+    cmd: >-
+      command -v node
+      || ls {{ home_dir }}/.nvm/versions/node/*/bin/node 2>/dev/null | tail -1
+  register: am_node
+  changed_when: false
+  failed_when: am_node.stdout | trim | length == 0
+
+- name: Install Agent Monitor hooks into ~/.claude/settings.json (merges)
+  ansible.builtin.command:
+    cmd: "{{ am_node.stdout | trim }} scripts/install-hooks.js"
+    chdir: "{{ agent_monitor_dir }}"
+  register: am_hooks
+  # install-hooks.js prints this only when it actually adds/updates entries.
+  changed_when: "'configured' in (am_hooks.stdout | default('') | lower)"
+  failed_when: am_hooks.rc != 0
+
 - name: Show Agent Monitor status
   ansible.builtin.debug:
     msg:
       - "Agent Monitor dashboard: {{ agent_monitor_url }}"
       - "health: {{ 'UP (' ~ am_health.status ~ ')' if (am_health.status is defined) else 'not reachable yet — check `docker logs agent-monitor`' }}"
+      - "hooks: installed (all Claude instances report to the dashboard; restart open sessions)"
