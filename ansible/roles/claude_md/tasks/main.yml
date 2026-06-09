@@ -1,0 +1,37 @@
+---
+# Inject the codebase-memory exploration rule into ~/.claude/CLAUDE.md.
+# Uses a managed block so it MERGES with the user's existing CLAUDE.md
+# (Language Rules, @RTK.md, etc.) instead of overwriting it.
+
+- name: Ensure ~/.claude exists
+  ansible.builtin.file:
+    path: "{{ home_dir }}/.claude"
+    state: directory
+    mode: "0755"
+
+- name: Add codebase-memory exploration rule to CLAUDE.md (managed block)
+  ansible.builtin.blockinfile:
+    path: "{{ home_dir }}/.claude/CLAUDE.md"
+    marker: "<!-- {mark} ANSIBLE MANAGED BLOCK - codebase-memory rule -->"
+    create: true
+    mode: "0644"
+    # Insert before the @RTK.md include if present, else append.
+    insertbefore: '^@RTK\.md'
+    block: |
+      ## Code Exploration (codebase-memory MCP)
+
+      This machine has the **codebase-memory** MCP installed (a code knowledge graph).
+      For understanding, navigating, or locating code, use it FIRST:
+
+      - To find functions/classes/routes/definitions or "where is X" → use
+        `search_graph` / `query_graph` (codebase-memory), NOT `find` / `grep` / `ls` /
+        `Glob` over source files.
+      - For "who calls X", call chains, dependencies, impact analysis, dead code →
+        use the graph (`query_graph`, `trace_path`), NOT manual file scanning.
+      - Only fall back to `find` / `grep` / `Bash` listing when the graph genuinely
+        cannot answer (e.g. non-code files, config, raw text search) or it is not
+        indexed for the current project.
+      - Reading a specific known file with `Read` is always fine.
+
+      Rationale: the graph is faster, uses far fewer tokens, and is the reason the MCP
+      was installed. Defaulting to `find`/`grep` wastes that.
