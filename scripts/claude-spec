@@ -1,0 +1,40 @@
+#!/usr/bin/env zsh
+# claude-spec: opt-in spec-driven workflow for the CURRENT project.
+#
+# Runs `specify init` (GitHub spec-kit) with the Claude integration, then
+# launches Claude via claude-local. Spec-kit availability is global; adopting
+# the spec-driven workflow is a per-project choice — that's what this is for.
+
+set -e
+
+# Colors (only if a TTY)
+if [[ -t 1 ]]; then
+  RESET=$'\e[0m'; BOLD=$'\e[1m'; DIM=$'\e[2m'
+  GREEN=$'\e[32m'; YELLOW=$'\e[33m'; CYAN=$'\e[36m'; MAGENTA=$'\e[35m'
+else
+  RESET=""; BOLD=""; DIM=""; GREEN=""; YELLOW=""; CYAN=""; MAGENTA=""
+fi
+
+SCRIPT_DIR="${0:A:h}"
+CLAUDE_LOCAL="$SCRIPT_DIR/claude-local"
+
+print ""
+print "${BOLD}${MAGENTA}╭──────────────────────────────────────────────╮${RESET}"
+print "${BOLD}${MAGENTA}│${RESET}  ${BOLD}📋 Spec-driven workflow for THIS project${RESET}      ${BOLD}${MAGENTA}│${RESET}"
+print "${BOLD}${MAGENTA}│${RESET}     ${DIM}$(basename "$PWD")${RESET}"
+print "${BOLD}${MAGENTA}╰──────────────────────────────────────────────╯${RESET}"
+print ""
+
+# 1. Initialize spec-kit in the current dir (idempotent-ish: skip if present)
+if [[ -d ".specify" ]]; then
+  print "${YELLOW}↺ .specify already exists — skipping init.${RESET}"
+else
+  print "${GREEN}▸ specify init . --integration claude${RESET}"
+  specify init . --integration claude
+fi
+
+# 2. Hand off to the normal launcher
+print ""
+print "${GREEN}▸ launching via claude-local...${RESET}"
+print ""
+exec "$CLAUDE_LOCAL" "$@"

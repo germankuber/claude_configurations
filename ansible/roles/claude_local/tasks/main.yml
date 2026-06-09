@@ -16,3 +16,19 @@
     block: |
       # claude-local launcher (from claude_configurations repo)
       alias {{ claude_local_alias }}="{{ claude_local_script }}"
+
+- name: Ensure claude-spec script is executable
+  ansible.builtin.file:
+    path: "{{ claude_spec_script }}"
+    mode: "0755"
+    state: file
+
+- name: Register claude-spec alias in .zshrc
+  ansible.builtin.blockinfile:
+    path: "{{ home_dir }}/.zshrc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - claude-spec"
+    create: true
+    mode: "0644"
+    block: |
+      # claude-spec: opt-in spec-driven workflow (specify init + claude-local)
+      alias {{ claude_spec_alias }}="{{ claude_spec_script }}"

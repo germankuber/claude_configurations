@@ -60,6 +60,10 @@ agent_monitor_url: "http://localhost:4820"
 claude_local_script: "{{ home_dir }}/Documents/Repositories/claude_configurations/scripts/claude-local"
 claude_local_alias: "claude-local"
 
+# --- claude-spec launcher (opt-in spec-driven workflow) --------------------
+claude_spec_script: "{{ home_dir }}/Documents/Repositories/claude_configurations/scripts/claude-spec"
+claude_spec_alias: "claude-spec"
+
 # --- Python toolchain ------------------------------------------------------
 brew_python_formula: "python@3.12"
 # uv (astral) — required by spec-kit
