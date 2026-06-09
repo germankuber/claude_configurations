@@ -19,3 +19,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Serena (not used in this repo)
+.serena/
