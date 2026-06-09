@@ -13,10 +13,12 @@ local_bin: "/usr/local/bin"
 sfw_bin_path: "{{ local_bin }}/sfw"
 # Official install script from socket.dev
 sfw_install_url: "https://socketsecurity.dev/install.sh"
-# Shell aliases that wrap package managers with sfw
+# Shell aliases that wrap package managers with sfw.
+# NOTE: npm is intentionally excluded — it is disabled via an `npm()` function
+# in .zshrc (forces pnpm). Aliasing npm would conflict with that function and
+# break .zshrc parsing ("defining function based on alias `npm'").
 sfw_aliases:
   - { name: pnpm, value: "sfw pnpm" }
-  - { name: npm,  value: "sfw npm" }
   - { name: yarn, value: "sfw yarn" }
 
 # --- Claude Code -----------------------------------------------------------
