@@ -1,0 +1,21 @@
+# Secrets / credenciales — NUNCA commitear
+*.key
+*.pem
+*.env
+.env
+.env.*
+*credentials*
+*secret*
+*token*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
