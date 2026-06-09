@@ -104,7 +104,9 @@ case "$use_headroom" in
     print ""
     print "${GREEN}🚀 Launching Claude Code with Headroom...${RESET}"
     print ""
-    headroom wrap claude -- "${claude_flags[@]}" "$@"
+    # --memory + --code-graph are Headroom flags (go BEFORE the --); everything
+    # after -- is passed through to claude.
+    headroom wrap claude --memory --code-graph -- "${claude_flags[@]}" "$@"
     ;;
   2)
     print "  ${BOLD}🪄 Headroom:${RESET}     ${RED}OFF${RESET}"
