@@ -7,10 +7,12 @@
 
 # Shared environment for all `claude` / `pnpm` invocations
 # (pnpm bin + nvm bin so existing/new globals resolve)
+# ~/.local/bin first so the OFFICIAL claude resolves before any pnpm shim;
+# pnpm bin dir included so codebase-memory-mcp and pnpm itself are on PATH.
 - name: Set claude command environment
   ansible.builtin.set_fact:
     claude_env:
-      PATH: "{{ pnpm_home }}:{{ home_dir }}/.local/bin:{{ ansible_env.PATH }}"
+      PATH: "{{ home_dir }}/.local/bin:{{ pnpm_home }}/bin:{{ ansible_env.PATH }}"
       PNPM_HOME: "{{ pnpm_home }}"
 
 # --- codebase-memory: reinstall under pnpm (remove stray nvm/npm copy) ------
@@ -31,10 +33,18 @@
     - cbm_which.stdout | length > 0
     - "'.nvm' in cbm_which.stdout"
 
+- name: Check if codebase-memory-mcp is installed under pnpm
+  ansible.builtin.command: "{{ pnpm_home }}/bin/codebase-memory-mcp --version"
+  register: cbm_pnpm_check
+  changed_when: false
+  failed_when: false
+  environment: "{{ claude_env }}"
+
 - name: Install codebase-memory-mcp via pnpm (global)
   ansible.builtin.command: pnpm add -g codebase-memory-mcp
   register: cbm_install
-  changed_when: "'already' not in (cbm_install.stdout | lower)"
+  changed_when: "'+ codebase-memory-mcp' in (cbm_install.stdout | default(''))"
+  when: cbm_pnpm_check.rc != 0
   environment: "{{ claude_env }}"
 
 # --- Register MCP servers via `claude mcp add` -----------------------------

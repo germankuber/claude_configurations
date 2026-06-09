@@ -14,7 +14,8 @@
 - name: Ensure pipx PATH is configured
   ansible.builtin.command: pipx ensurepath
   register: pipx_ensurepath
-  changed_when: "'Success' in pipx_ensurepath.stdout or pipx_ensurepath.rc == 0"
+  # pipx prints this line only when it actually modifies PATH config
+  changed_when: "'has been been added' in (pipx_ensurepath.stdout | default('')) or 'is not on your PATH' in (pipx_ensurepath.stdout | default(''))"
   failed_when: false
 
 # --- Headroom (context compression) via pipx -------------------------------
@@ -32,11 +33,20 @@
   when: "'headroom' not in (pipx_list.stdout | default(''))"
 
 # Register Headroom as an MCP server (its own installer command)
+- name: Check if Headroom MCP is already registered
+  ansible.builtin.command: claude mcp list
+  register: headroom_mcp_list
+  changed_when: false
+  failed_when: false
+  environment:
+    PATH: "{{ home_dir }}/.local/bin:{{ pnpm_home }}/bin:{{ ansible_env.PATH }}"
+
 - name: Register Headroom MCP server
   ansible.builtin.command: headroom mcp install
   register: headroom_mcp
   changed_when: headroom_mcp.rc == 0
   failed_when: false
+  when: "'headroom:' not in (headroom_mcp_list.stdout | default(''))"
   environment:
     PATH: "{{ home_dir }}/.local/bin:{{ ansible_env.PATH }}"
 
