@@ -9,8 +9,10 @@
 #   - mcp_servers    codebase-memory (UI), context7, filesystem, ccusage, github
 #   - docker         Docker CLI + Compose (daemon check)
 #   - agent_monitor  Claude Code Agent Monitor dashboard (Docker, :4820)
-#   - claude_md      codebase-memory exploration rule in ~/.claude/CLAUDE.md
 #   - claude_local   claude-local launcher script + zsh alias
+#
+# Note: codebase-memory's own installer already steers Claude toward the graph
+# (SessionStart hook cbm-session-reminder + skill), so no CLAUDE.md edit is needed.
 #
 # Run:  ansible-playbook playbook.yml
 # ============================================================================
@@ -38,7 +40,6 @@
     - mcp_servers
     - docker
     - agent_monitor
-    - claude_md
     - claude_local
 
   post_tasks:
