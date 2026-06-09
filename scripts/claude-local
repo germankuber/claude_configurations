@@ -14,93 +14,107 @@ set -e
 
 BASE_DIR="$HOME/.claude-mcp-data"
 
-# --- 1. Use Headroom? ---
-echo ""
-echo "Do you want to use Headroom?"
-echo "  1) Yes"
-echo "  2) No"
-echo -n "> "
+# --- Colors (ANSI) ---------------------------------------------------------
+if [[ -t 1 ]]; then
+  RESET=$'\e[0m'; BOLD=$'\e[1m'; DIM=$'\e[2m'
+  RED=$'\e[31m'; GREEN=$'\e[32m'; YELLOW=$'\e[33m'
+  BLUE=$'\e[34m'; MAGENTA=$'\e[35m'; CYAN=$'\e[36m'; GREY=$'\e[90m'
+else
+  RESET=""; BOLD=""; DIM=""; RED=""; GREEN=""; YELLOW=""
+  BLUE=""; MAGENTA=""; CYAN=""; GREY=""
+fi
+
+ask() { print -n "${BOLD}${CYAN}❯ ${RESET}"; }
+err() { print "${RED}✖ $1${RESET}"; exit 1; }
+
+# --- 1. Use Headroom? ------------------------------------------------------
+print ""
+print "${BOLD}${MAGENTA}🪄  Do you want to use Headroom?${RESET}"
+print "  ${GREEN}1)${RESET} Yes"
+print "  ${RED}2)${RESET} No"
+ask
 read use_headroom
 
-# --- 2. Local or global scope? ---
-echo ""
-echo "Which data scope?"
-echo "  1) Local  (this project: $(basename "$PWD"))"
-echo "  2) Global (shared across all projects)"
-echo -n "> "
+# --- 2. Local or global scope? ---------------------------------------------
+print ""
+print "${BOLD}${BLUE}📁  Which data scope?${RESET}"
+print "  ${GREEN}1)${RESET} Local   ${DIM}(this project: $(basename "$PWD"))${RESET}"
+print "  ${GREEN}2)${RESET} Global  ${DIM}(shared across all projects)${RESET}"
+ask
 read scope
 
-# --- 3. Skip permissions? ---
-echo ""
-echo "Run with --dangerously-skip-permissions?"
-echo "  1) Yes  (no permission prompts -- use with caution)"
-echo "  2) No   (default, safe)"
-echo -n "> "
+# --- 3. Skip permissions? --------------------------------------------------
+print ""
+print "${BOLD}${YELLOW}🔓  Run with --dangerously-skip-permissions?${RESET}"
+print "  ${YELLOW}1)${RESET} Yes  ${DIM}(no permission prompts -- use with caution)${RESET}"
+print "  ${GREEN}2)${RESET} No   ${DIM}(default, safe)${RESET}"
+ask
 read skip_perms
 
-# --- 4. Resolve data directory ---
+# --- 4. Resolve data directory ---------------------------------------------
 case "$scope" in
   1)
     project_name="${PWD##*/}"
     data_dir="$BASE_DIR/$project_name"
-    scope_label="LOCAL ($project_name)"
+    scope_label="${CYAN}LOCAL${RESET} ${DIM}($project_name)${RESET}"
     ;;
   2)
     data_dir="$BASE_DIR/_global"
-    scope_label="GLOBAL"
+    scope_label="${MAGENTA}GLOBAL${RESET}"
     ;;
   *)
-    echo "Invalid option. Exiting."
-    exit 1
+    err "Invalid option. Exiting."
     ;;
 esac
 
-# --- 5. Resolve claude flags ---
+# --- 5. Resolve claude flags -----------------------------------------------
 claude_flags=()
 case "$skip_perms" in
   1)
     claude_flags+=("--dangerously-skip-permissions")
-    skip_label="ON"
+    skip_label="${YELLOW}ON${RESET}"
     ;;
   2)
-    skip_label="OFF"
+    skip_label="${GREEN}OFF${RESET}"
     ;;
   *)
-    echo "Invalid option. Exiting."
-    exit 1
+    err "Invalid option. Exiting."
     ;;
 esac
 
-# --- 6. Create directories if missing ---
+# --- 6. Create directories if missing --------------------------------------
 mkdir -p "$data_dir/cbm" "$data_dir/headroom"
 
-# --- 7. Export env vars for the MCPs ---
+# --- 7. Export env vars for the MCPs ---------------------------------------
 export CBM_DATA_DIR="$data_dir/cbm"
 export HEADROOM_DB_PATH="$data_dir/headroom/memory.db"
 
-# --- 8. Print config and launch ---
-echo ""
-echo "─────────────────────────────────────────"
-echo "  Scope:        $scope_label"
-echo "  CBM data:     $CBM_DATA_DIR"
-echo "  Headroom DB:  $HEADROOM_DB_PATH"
-echo "  Skip perms:   $skip_label"
+# --- 8. Print config and launch --------------------------------------------
+print ""
+print "${GREY}─────────────────────────────────────────${RESET}"
+print "  ${BOLD}🎯 Scope:${RESET}        $scope_label"
+print "  ${BOLD}🧠 CBM data:${RESET}     ${DIM}$CBM_DATA_DIR${RESET}"
+print "  ${BOLD}💾 Headroom DB:${RESET}  ${DIM}$HEADROOM_DB_PATH${RESET}"
+print "  ${BOLD}🔓 Skip perms:${RESET}   $skip_label"
 
 case "$use_headroom" in
   1)
-    echo "  Headroom:     ON (wrap)"
-    echo "─────────────────────────────────────────"
-    echo ""
+    print "  ${BOLD}🪄 Headroom:${RESET}     ${GREEN}ON ${DIM}(wrap)${RESET}"
+    print "${GREY}─────────────────────────────────────────${RESET}"
+    print ""
+    print "${GREEN}🚀 Launching Claude Code with Headroom...${RESET}"
+    print ""
     headroom wrap claude -- "${claude_flags[@]}" "$@"
     ;;
   2)
-    echo "  Headroom:     OFF"
-    echo "─────────────────────────────────────────"
-    echo ""
+    print "  ${BOLD}🪄 Headroom:${RESET}     ${RED}OFF${RESET}"
+    print "${GREY}─────────────────────────────────────────${RESET}"
+    print ""
+    print "${GREEN}🚀 Launching Claude Code...${RESET}"
+    print ""
     claude "${claude_flags[@]}" "$@"
     ;;
   *)
-    echo "Invalid Headroom option. Exiting."
-    exit 1
+    err "Invalid Headroom option. Exiting."
     ;;
 esac
