@@ -14,8 +14,23 @@ set -e
 
 BASE_DIR="$HOME/.claude-mcp-data"
 
-# codebase-memory-mcp graph UI (3D knowledge graph) — served while Claude is up
-CBM_UI_PORT="${CBM_UI_PORT:-9749}"
+# codebase-memory-mcp graph UI (3D knowledge graph) — served while Claude is up.
+# Each Claude instance needs its OWN port (only one process can bind a port),
+# so we pick the first free port from CBM_UI_BASE_PORT upward. This lets you run
+# several `claude-local` consoles at once, each with its own 3D graph.
+CBM_UI_BASE_PORT="${CBM_UI_BASE_PORT:-9749}"
+CBM_BIN="${CBM_BIN:-$HOME/.local/bin/codebase-memory-mcp}"
+
+# find_free_port <start> — echo first TCP port >= start that nothing is listening on
+find_free_port() {
+  local p=$1
+  while lsof -nP -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; do
+    p=$((p + 1))
+  done
+  print -- "$p"
+}
+
+CBM_UI_PORT="$(find_free_port "$CBM_UI_BASE_PORT")"
 CBM_UI_URL="http://localhost:${CBM_UI_PORT}"
 
 # Claude Code Agent Monitor dashboard (Docker service, if running)
@@ -97,6 +112,13 @@ mkdir -p "$data_dir/cbm" "$data_dir/headroom"
 export CBM_DATA_DIR="$data_dir/cbm"
 export HEADROOM_DB_PATH="$data_dir/headroom/memory.db"
 
+# Point this session's codebase-memory graph UI at the free port we found.
+# (config set port is read by the MCP that Claude spawns next.)
+if [[ -x "$CBM_BIN" ]]; then
+  "$CBM_BIN" config set port "$CBM_UI_PORT" >/dev/null 2>&1 || true
+fi
+export CBM_UI_PORT
+
 # --- 8. Print config and launch --------------------------------------------
 print ""
 print "${GREY}─────────────────────────────────────────${RESET}"
@@ -108,10 +130,26 @@ print "  ${BOLD}🌐 Graph UI:${RESET}     ${BOLD}${CYAN}\e[4m${CBM_UI_URL}${RES
 print "  ${BOLD}📊 Agent Monitor:${RESET} ${BOLD}${CYAN}\e[4m${AGENT_MONITOR_URL}${RESET} ${DIM}(dashboard)${RESET}"
 
 case "$use_headroom" in
+  1) print "  ${BOLD}🪄 Headroom:${RESET}     ${GREEN}ON ${DIM}(wrap)${RESET}" ;;
+  2) print "  ${BOLD}🪄 Headroom:${RESET}     ${RED}OFF${RESET}" ;;
+  *) err "Invalid Headroom option. Exiting." ;;
+esac
+print "${GREY}─────────────────────────────────────────${RESET}"
+
+# --- Prominent graph-UI banner (this session's own port) -------------------
+print ""
+print "${BOLD}${MAGENTA}╭──────────────────────────────────────────────╮${RESET}"
+print "${BOLD}${MAGENTA}│${RESET}  ${BOLD}🧠 codebase-memory 3D graph for THIS session${RESET}  ${BOLD}${MAGENTA}│${RESET}"
+print "${BOLD}${MAGENTA}│${RESET}     ${BOLD}${CYAN}\e[4m${CBM_UI_URL}${RESET}                  ${BOLD}${MAGENTA}│${RESET}"
+print "${BOLD}${MAGENTA}╰──────────────────────────────────────────────╯${RESET}"
+if [[ "$CBM_UI_PORT" != "$CBM_UI_BASE_PORT" ]]; then
+  print "${DIM}   (port ${CBM_UI_BASE_PORT} was busy — another Claude instance is using it;${RESET}"
+  print "${DIM}    this session got its own port ${CBM_UI_PORT})${RESET}"
+fi
+print ""
+
+case "$use_headroom" in
   1)
-    print "  ${BOLD}🪄 Headroom:${RESET}     ${GREEN}ON ${DIM}(wrap)${RESET}"
-    print "${GREY}─────────────────────────────────────────${RESET}"
-    print ""
     print "${GREEN}🚀 Launching Claude Code with Headroom...${RESET}"
     print ""
     # --memory + --code-graph + --no-serena are Headroom flags (go BEFORE the
@@ -120,14 +158,8 @@ case "$use_headroom" in
     headroom wrap claude --memory --code-graph --no-serena -- "${claude_flags[@]}" "$@"
     ;;
   2)
-    print "  ${BOLD}🪄 Headroom:${RESET}     ${RED}OFF${RESET}"
-    print "${GREY}─────────────────────────────────────────${RESET}"
-    print ""
     print "${GREEN}🚀 Launching Claude Code...${RESET}"
     print ""
     claude "${claude_flags[@]}" "$@"
-    ;;
-  *)
-    err "Invalid Headroom option. Exiting."
     ;;
 esac

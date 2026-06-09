@@ -60,6 +60,9 @@
   failed_when: false
   environment: "{{ claude_env }}"
 
+# Base/default UI port. The claude-local launcher overrides this per session
+# (picks the next free port from here up) so multiple Claude instances each get
+# their own 3D graph UI without colliding on one port.
 - name: Set codebase-memory-mcp graph UI port (persisted config)
   ansible.builtin.command: "{{ cbm_bin }} config set port {{ cbm_ui_port }}"
   changed_when: true
