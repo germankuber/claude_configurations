@@ -104,9 +104,10 @@ case "$use_headroom" in
     print ""
     print "${GREEN}🚀 Launching Claude Code with Headroom...${RESET}"
     print ""
-    # --memory + --code-graph are Headroom flags (go BEFORE the --); everything
-    # after -- is passed through to claude.
-    headroom wrap claude --memory --code-graph -- "${claude_flags[@]}" "$@"
+    # --memory + --code-graph + --no-serena are Headroom flags (go BEFORE the
+    # --); everything after -- is passed through to claude.
+    # --no-serena: don't auto-register the Serena MCP (not used in this setup).
+    headroom wrap claude --memory --code-graph --no-serena -- "${claude_flags[@]}" "$@"
     ;;
   2)
     print "  ${BOLD}🪄 Headroom:${RESET}     ${RED}OFF${RESET}"
