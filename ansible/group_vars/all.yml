@@ -27,6 +27,12 @@ claude_package: "@anthropic-ai/claude-code"
 # --- MCP server scope for `claude mcp add` ---------------------------------
 mcp_scope: "user"
 
+# --- codebase-memory-mcp (UI variant) --------------------------------------
+# Official installer; the UI variant ships the 3D graph at localhost:9749.
+cbm_install_url: "https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh"
+cbm_bin: "{{ home_dir }}/.local/bin/codebase-memory-mcp"
+cbm_ui_port: 9749
+
 # Filesystem MCP: directories the server is allowed to access
 filesystem_mcp_roots:
   - "{{ home_dir }}/Documents/Repositories"

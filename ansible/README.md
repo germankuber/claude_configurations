@@ -14,7 +14,10 @@ Idempotent provisioning of a complete Claude Code setup on **macOS**.
 
 ### MCP servers registered (user scope)
 
-- **codebase-memory** — `codebase-memory-mcp` (via pnpm global)
+- **codebase-memory** — UI variant binary in `~/.local/bin` (official installer
+  `install.sh --ui`); registered with `--ui=true` so the 3D graph runs at
+  **http://localhost:9749** whenever Claude is connected. The pnpm package is the
+  standard (no-UI) variant, so it is NOT used here.
 - **context7** — `@upstash/context7-mcp` (API key via env)
 - **filesystem** — `@modelcontextprotocol/server-filesystem` (scoped to `~/Documents/Repositories`)
 - **ccusage** — `@ccusage/mcp` (Claude Code token usage / cost analytics)

@@ -1,8 +1,9 @@
 ---
 # Register MCP servers with Claude Code (user scope)
-# - codebase-memory  (pnpm global binary)
+# - codebase-memory  (UI variant binary in ~/.local/bin, 3D graph at :9749)
 # - context7         (npx, with optional API key)
 # - filesystem       (npx, scoped to allowed roots)
+# - ccusage          (npx, token usage analytics)
 # - github           (official Claude plugin, HTTP remote)
 
 # Shared environment for all `claude` / `pnpm` invocations
@@ -15,36 +16,55 @@
       PATH: "{{ home_dir }}/.local/bin:{{ pnpm_home }}/bin:{{ ansible_env.PATH }}"
       PNPM_HOME: "{{ pnpm_home }}"
 
-# --- codebase-memory: reinstall under pnpm (remove stray nvm/npm copy) ------
+# --- codebase-memory: install the UI variant via the official installer -----
+# The pnpm package ships the STANDARD binary (no graph UI). The UI variant
+# (3D graph at localhost:9749) is only in the official release binary, so we
+# install it to ~/.local/bin via install.sh --ui. ~/.local/bin is first on
+# PATH, so this binary wins over any pnpm shim.
 
-- name: Detect existing codebase-memory-mcp path
-  ansible.builtin.command: which codebase-memory-mcp
-  register: cbm_which
+- name: Check installed codebase-memory-mcp variant (UI strings present?)
+  ansible.builtin.shell:
+    cmd: >-
+      {{ cbm_bin }} --help 2>&1 | grep -q -- '--ui' && echo ui || echo none
+  register: cbm_variant
   changed_when: false
   failed_when: false
   environment: "{{ claude_env }}"
 
-- name: Remove codebase-memory-mcp installed outside pnpm (nvm/npm)
-  ansible.builtin.command: npm uninstall -g codebase-memory-mcp
-  register: cbm_npm_remove
-  changed_when: cbm_npm_remove.rc == 0
-  failed_when: false
-  when:
-    - cbm_which.stdout | length > 0
-    - "'.nvm' in cbm_which.stdout"
+- name: Install codebase-memory-mcp UI variant (official installer)
+  ansible.builtin.shell:
+    cmd: >-
+      curl -fsSL {{ cbm_install_url }} | bash -s -- --ui --dir {{ home_dir }}/.local/bin
+  register: cbm_ui_install
+  changed_when: cbm_ui_install.rc == 0
+  when: "'ui' not in (cbm_variant.stdout | default(''))"
 
-- name: Check if codebase-memory-mcp is installed under pnpm
-  ansible.builtin.command: "{{ pnpm_home }}/bin/codebase-memory-mcp --version"
-  register: cbm_pnpm_check
+- name: Read current codebase-memory-mcp UI config
+  ansible.builtin.command: "{{ cbm_bin }} config get ui"
+  register: cbm_ui_get
   changed_when: false
   failed_when: false
   environment: "{{ claude_env }}"
 
-- name: Install codebase-memory-mcp via pnpm (global)
-  ansible.builtin.command: pnpm add -g codebase-memory-mcp
-  register: cbm_install
-  changed_when: "'+ codebase-memory-mcp' in (cbm_install.stdout | default(''))"
-  when: cbm_pnpm_check.rc != 0
+- name: Enable codebase-memory-mcp graph UI (persisted config)
+  ansible.builtin.command: "{{ cbm_bin }} config set ui true"
+  changed_when: true
+  failed_when: false
+  when: "'true' not in (cbm_ui_get.stdout | default(''))"
+  environment: "{{ claude_env }}"
+
+- name: Read current codebase-memory-mcp UI port
+  ansible.builtin.command: "{{ cbm_bin }} config get port"
+  register: cbm_port_get
+  changed_when: false
+  failed_when: false
+  environment: "{{ claude_env }}"
+
+- name: Set codebase-memory-mcp graph UI port (persisted config)
+  ansible.builtin.command: "{{ cbm_bin }} config set port {{ cbm_ui_port }}"
+  changed_when: true
+  failed_when: false
+  when: "(cbm_ui_port | string) not in (cbm_port_get.stdout | default(''))"
   environment: "{{ claude_env }}"
 
 # --- Register MCP servers via `claude mcp add` -----------------------------
@@ -56,10 +76,10 @@
   failed_when: false
   environment: "{{ claude_env }}"
 
-# codebase-memory (stdio binary)
+# codebase-memory (stdio binary; UI variant launches the graph at :{{ cbm_ui_port }})
 - name: Register codebase-memory MCP
   ansible.builtin.command: >-
-    claude mcp add --scope {{ mcp_scope }} codebase-memory codebase-memory-mcp
+    claude mcp add --scope {{ mcp_scope }} codebase-memory {{ cbm_bin }} -- --ui=true
   register: add_cbm
   changed_when: "'Added' in add_cbm.stdout"
   failed_when: add_cbm.rc != 0 and 'already exists' not in (add_cbm.stderr | default(''))
