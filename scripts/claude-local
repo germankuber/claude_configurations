@@ -18,6 +18,10 @@ BASE_DIR="$HOME/.claude-mcp-data"
 CBM_UI_PORT="${CBM_UI_PORT:-9749}"
 CBM_UI_URL="http://localhost:${CBM_UI_PORT}"
 
+# Claude Code Agent Monitor dashboard (Docker service, if running)
+AGENT_MONITOR_PORT="${AGENT_MONITOR_PORT:-4820}"
+AGENT_MONITOR_URL="http://localhost:${AGENT_MONITOR_PORT}"
+
 # --- Colors (ANSI) ---------------------------------------------------------
 if [[ -t 1 ]]; then
   RESET=$'\e[0m'; BOLD=$'\e[1m'; DIM=$'\e[2m'
@@ -101,6 +105,7 @@ print "  ${BOLD}🧠 CBM data:${RESET}     ${DIM}$CBM_DATA_DIR${RESET}"
 print "  ${BOLD}💾 Headroom DB:${RESET}  ${DIM}$HEADROOM_DB_PATH${RESET}"
 print "  ${BOLD}🔓 Skip perms:${RESET}   $skip_label"
 print "  ${BOLD}🌐 Graph UI:${RESET}     ${BOLD}${CYAN}\e[4m${CBM_UI_URL}${RESET} ${DIM}(codebase-memory)${RESET}"
+print "  ${BOLD}📊 Agent Monitor:${RESET} ${BOLD}${CYAN}\e[4m${AGENT_MONITOR_URL}${RESET} ${DIM}(dashboard)${RESET}"
 
 case "$use_headroom" in
   1)

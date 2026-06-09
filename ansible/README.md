@@ -10,6 +10,8 @@ Idempotent provisioning of a complete Claude Code setup on **macOS**.
 | `claude` | Claude Code CLI | `pnpm add -g @anthropic-ai/claude-code` |
 | `python_tools` | `python@3.12`, `uv`, `pipx`, Headroom, spec-kit | Homebrew + pipx + uv |
 | `mcp_servers` | MCP servers (user scope) | `claude mcp add` / plugin |
+| `docker` | Docker CLI + Compose (daemon check) | Homebrew |
+| `agent_monitor` | Claude Code Agent Monitor dashboard (Docker, `:4820`) | git + docker compose |
 | `claude_local` | `claude-local` launcher script + zsh alias | file + blockinfile |
 
 ### MCP servers registered (user scope)
@@ -22,6 +24,14 @@ Idempotent provisioning of a complete Claude Code setup on **macOS**.
 - **filesystem** — `@modelcontextprotocol/server-filesystem` (scoped to `~/Documents/Repositories`)
 - **ccusage** — `@ccusage/mcp` (Claude Code token usage / cost analytics)
 - **github** — official Claude plugin `github@claude-plugins-official` (HTTP remote)
+
+### Claude Code Agent Monitor
+
+[hoangsonww/Claude-Code-Agent-Monitor](https://github.com/hoangsonww/Claude-Code-Agent-Monitor)
+— real-time dashboard for Claude Code sessions. Cloned to
+`~/.local/share/claude-code-agent-monitor` and run via `docker compose up -d
+--build` (no published image exists). Dashboard at **http://localhost:4820**,
+`restart: unless-stopped`. Requires a running Docker daemon (OrbStack/Desktop/colima).
 
 ### claude-local launcher
 

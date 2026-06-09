@@ -1,0 +1,45 @@
+---
+# Claude Code Agent Monitor — real-time dashboard for Claude Code sessions.
+# No published image exists, so docker compose builds from the cloned repo.
+# Runs in production mode (port 4820), restart: unless-stopped.
+
+- name: Clone/update Claude Code Agent Monitor repo
+  ansible.builtin.git:
+    repo: "{{ agent_monitor_repo }}"
+    dest: "{{ agent_monitor_dir }}"
+    version: "{{ agent_monitor_branch }}"
+    update: true
+  register: am_clone
+
+- name: Check if agent-monitor container is already running
+  ansible.builtin.command: docker ps --filter name=agent-monitor --format '{{ "{{" }}.Names{{ "}}" }}'
+  register: am_ps
+  changed_when: false
+  failed_when: false
+
+- name: Build and start Agent Monitor (docker compose up -d --build)
+  ansible.builtin.command:
+    cmd: docker compose up -d --build
+    chdir: "{{ agent_monitor_dir }}"
+  register: am_up
+  # Rebuild when the repo changed or the container isn't up yet.
+  when: am_clone.changed or 'agent-monitor' not in (am_ps.stdout | default(''))
+  changed_when: am_up.rc == 0
+  environment:
+    DASHBOARD_PORT: "{{ agent_monitor_port }}"
+
+- name: Wait for Agent Monitor dashboard to respond
+  ansible.builtin.uri:
+    url: "{{ agent_monitor_url }}"
+    status_code: [200, 301, 302]
+  register: am_health
+  retries: 10
+  delay: 3
+  until: am_health.status is defined and am_health.status in [200, 301, 302]
+  failed_when: false
+
+- name: Show Agent Monitor status
+  ansible.builtin.debug:
+    msg:
+      - "Agent Monitor dashboard: {{ agent_monitor_url }}"
+      - "health: {{ 'UP (' ~ am_health.status ~ ')' if (am_health.status is defined) else 'not reachable yet — check `docker logs agent-monitor`' }}"

@@ -1,0 +1,44 @@
+---
+# Ensure Docker CLI + Compose are installed (via Homebrew) and a daemon is up.
+# This machine uses the docker CLI with an OrbStack/colima backend; we install
+# the CLI tooling idempotently and verify the daemon is reachable.
+
+- name: Install Docker CLI tooling via Homebrew
+  community.general.homebrew:
+    name:
+      - docker
+      - docker-compose
+      - docker-buildx
+    state: present
+
+- name: Check Docker CLI version
+  ansible.builtin.command: docker --version
+  register: docker_version
+  changed_when: false
+  failed_when: docker_version.rc != 0
+
+- name: Check Docker Compose version
+  ansible.builtin.command: docker compose version
+  register: compose_version
+  changed_when: false
+  failed_when: compose_version.rc != 0
+
+- name: Check if Docker daemon is reachable
+  ansible.builtin.command: docker info
+  register: docker_info
+  changed_when: false
+  failed_when: false
+
+- name: Warn if Docker daemon is not running
+  ansible.builtin.debug:
+    msg: >-
+      Docker daemon is NOT reachable. Start your Docker backend
+      (OrbStack / Docker Desktop / `colima start`) before services that need it.
+  when: docker_info.rc != 0
+
+- name: Show Docker status
+  ansible.builtin.debug:
+    msg:
+      - "{{ docker_version.stdout }}"
+      - "{{ compose_version.stdout }}"
+      - "daemon: {{ 'reachable' if docker_info.rc == 0 else 'NOT running' }}"

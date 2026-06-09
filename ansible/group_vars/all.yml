@@ -45,6 +45,13 @@ context7_api_key: "{{ lookup('env', 'CONTEXT7_API_KEY') | default('', true) }}"
 # Matches the current setup: plugin `github@claude-plugins-official`.
 github_plugin: "github@claude-plugins-official"
 
+# --- Claude Code Agent Monitor (dashboard via Docker) ----------------------
+agent_monitor_repo: "https://github.com/hoangsonww/Claude-Code-Agent-Monitor.git"
+agent_monitor_branch: "master"
+agent_monitor_dir: "{{ home_dir }}/.local/share/claude-code-agent-monitor"
+agent_monitor_port: 4820
+agent_monitor_url: "http://localhost:4820"
+
 # --- claude-local launcher -------------------------------------------------
 # Path to the claude-local script in this repo (relative to repo root).
 claude_local_script: "{{ home_dir }}/Documents/Repositories/claude_configurations/scripts/claude-local"
