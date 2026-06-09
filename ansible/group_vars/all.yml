@@ -32,6 +32,9 @@ mcp_scope: "user"
 cbm_install_url: "https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh"
 cbm_bin: "{{ home_dir }}/.local/bin/codebase-memory-mcp"
 cbm_ui_port: 9749
+# Auto-index repos on connect/change (vs manual index_repository calls)
+cbm_auto_index: true
+cbm_auto_index_limit: 200000
 
 # Filesystem MCP: directories the server is allowed to access
 filesystem_mcp_roots:

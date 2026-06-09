@@ -67,6 +67,34 @@
   when: "(cbm_ui_port | string) not in (cbm_port_get.stdout | default(''))"
   environment: "{{ claude_env }}"
 
+- name: Read current codebase-memory-mcp auto_index
+  ansible.builtin.command: "{{ cbm_bin }} config get auto_index"
+  register: cbm_autoidx_get
+  changed_when: false
+  failed_when: false
+  environment: "{{ claude_env }}"
+
+- name: Set codebase-memory-mcp auto_index (persisted config)
+  ansible.builtin.command: "{{ cbm_bin }} config set auto_index {{ cbm_auto_index | string | lower }}"
+  changed_when: true
+  failed_when: false
+  when: "(cbm_auto_index | string | lower) not in (cbm_autoidx_get.stdout | default('') | lower)"
+  environment: "{{ claude_env }}"
+
+- name: Read current codebase-memory-mcp auto_index_limit
+  ansible.builtin.command: "{{ cbm_bin }} config get auto_index_limit"
+  register: cbm_autoidx_limit_get
+  changed_when: false
+  failed_when: false
+  environment: "{{ claude_env }}"
+
+- name: Set codebase-memory-mcp auto_index_limit (persisted config)
+  ansible.builtin.command: "{{ cbm_bin }} config set auto_index_limit {{ cbm_auto_index_limit }}"
+  changed_when: true
+  failed_when: false
+  when: "(cbm_auto_index_limit | string) not in (cbm_autoidx_limit_get.stdout | default(''))"
+  environment: "{{ claude_env }}"
+
 # --- Register MCP servers via `claude mcp add` -----------------------------
 
 - name: List currently registered MCP servers
