@@ -1,0 +1,53 @@
+---
+# ============================================================================
+# Global variables for Claude Code environment provisioning (macOS)
+# ============================================================================
+
+# --- Paths -----------------------------------------------------------------
+home_dir: "{{ ansible_env.HOME }}"
+# pnpm global bin directory (where `pnpm add -g` installs binaries)
+pnpm_home: "{{ ansible_env.PNPM_HOME | default(home_dir + '/Library/pnpm') }}"
+local_bin: "/usr/local/bin"
+
+# --- Socket Firewall (sfw) -------------------------------------------------
+sfw_bin_path: "{{ local_bin }}/sfw"
+# Official install script from socket.dev
+sfw_install_url: "https://socketsecurity.dev/install.sh"
+# Shell aliases that wrap package managers with sfw
+sfw_aliases:
+  - { name: pnpm, value: "sfw pnpm" }
+  - { name: npm,  value: "sfw npm" }
+  - { name: yarn, value: "sfw yarn" }
+
+# --- Claude Code -----------------------------------------------------------
+claude_package: "@anthropic-ai/claude-code"
+
+# --- MCP server scope for `claude mcp add` ---------------------------------
+mcp_scope: "user"
+
+# Filesystem MCP: directories the server is allowed to access
+filesystem_mcp_roots:
+  - "{{ home_dir }}/Documents/Repositories"
+
+# Context7 API key — read from CONTEXT7_API_KEY env var.
+# Empty -> Context7 registered without a key (limited functionality).
+context7_api_key: "{{ lookup('env', 'CONTEXT7_API_KEY') | default('', true) }}"
+
+# GitHub MCP — installed as the official Claude plugin (HTTP remote).
+# Matches the current setup: plugin `github@claude-plugins-official`.
+github_plugin: "github@claude-plugins-official"
+
+# --- Python toolchain ------------------------------------------------------
+brew_python_formula: "python@3.12"
+# uv (astral) — required by spec-kit
+brew_uv_formula: "uv"
+# pipx — isolated CLI installs (headroom)
+brew_pipx_formula: "pipx"
+
+# --- Headroom (context compression) ----------------------------------------
+headroom_pipx_spec: "headroom-ai[all]"
+
+# --- spec-kit (specify CLI) ------------------------------------------------
+# Pin to a release tag; `latest` resolves the newest GitHub release.
+spec_kit_version: "latest"
+spec_kit_git: "git+https://github.com/github/spec-kit.git"

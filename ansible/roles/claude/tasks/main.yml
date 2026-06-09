@@ -1,0 +1,38 @@
+---
+# Install Claude Code via pnpm (global)
+
+- name: Check if pnpm is available
+  ansible.builtin.command: pnpm --version
+  register: pnpm_check
+  changed_when: false
+  failed_when: pnpm_check.rc != 0
+  environment:
+    PATH: "{{ pnpm_home }}:{{ ansible_env.PATH }}"
+
+- name: Check if claude is already installed
+  ansible.builtin.command: claude --version
+  register: claude_check
+  changed_when: false
+  failed_when: false
+  environment:
+    PATH: "{{ pnpm_home }}:{{ ansible_env.PATH }}"
+
+- name: Install Claude Code globally via pnpm
+  ansible.builtin.command: "pnpm add -g {{ claude_package }}"
+  register: claude_install
+  changed_when: "'already' not in claude_install.stdout | lower"
+  when: claude_check.rc != 0
+  environment:
+    PATH: "{{ pnpm_home }}:{{ ansible_env.PATH }}"
+    PNPM_HOME: "{{ pnpm_home }}"
+
+- name: Report Claude Code version
+  ansible.builtin.command: claude --version
+  register: claude_final
+  changed_when: false
+  environment:
+    PATH: "{{ pnpm_home }}:{{ ansible_env.PATH }}"
+
+- name: Show Claude Code version
+  ansible.builtin.debug:
+    msg: "Claude Code: {{ claude_final.stdout }}"

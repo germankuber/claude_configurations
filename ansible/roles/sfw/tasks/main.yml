@@ -1,0 +1,40 @@
+---
+# Install and configure Socket Firewall (sfw)
+
+- name: Check if sfw is already installed
+  ansible.builtin.stat:
+    path: "{{ sfw_bin_path }}"
+  register: sfw_bin
+
+- name: Install Socket Firewall (sfw) via official script
+  ansible.builtin.shell:
+    cmd: "curl -fsSL {{ sfw_install_url }} | sh"
+  args:
+    creates: "{{ sfw_bin_path }}"
+  when: not sfw_bin.stat.exists
+  register: sfw_install
+  changed_when: sfw_install.rc == 0
+
+- name: Verify sfw is on PATH
+  ansible.builtin.command: "{{ sfw_bin_path }} --version"
+  register: sfw_version
+  changed_when: false
+  failed_when: sfw_version.rc != 0
+
+- name: Show sfw version
+  ansible.builtin.debug:
+    msg: "{{ sfw_version.stdout_lines | select | first | default('sfw installed') }}"
+
+# --- Configure shell aliases (pnpm/npm/yarn -> sfw) ------------------------
+
+- name: Ensure Socket Firewall alias block exists in .zshrc
+  ansible.builtin.blockinfile:
+    path: "{{ home_dir }}/.zshrc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Socket Firewall (sfw)"
+    create: true
+    mode: "0644"
+    block: |
+      # Socket Firewall (sfw) - block malicious packages at install time
+      {% for a in sfw_aliases %}
+      alias {{ a.name }}='{{ a.value }}'
+      {% endfor %}

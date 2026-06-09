@@ -1,0 +1,43 @@
+---
+# ============================================================================
+# Claude Code environment provisioning (macOS)
+#
+# Installs and configures:
+#   - sfw           Socket Firewall + shell aliases
+#   - claude        Claude Code (via pnpm global)
+#   - python_tools  python@3.12 + uv + pipx, Headroom, spec-kit
+#   - mcp_servers   codebase-memory, context7, filesystem, github (user scope)
+#
+# Run:  ansible-playbook playbook.yml
+# ============================================================================
+
+- name: Provision Claude Code environment
+  hosts: local
+  gather_facts: true
+
+  pre_tasks:
+    - name: Assert running on macOS
+      ansible.builtin.assert:
+        that: ansible_os_family == "Darwin"
+        fail_msg: "This playbook targets macOS only."
+
+    - name: Ensure Homebrew is present
+      ansible.builtin.command: brew --version
+      register: brew_check
+      changed_when: false
+      failed_when: brew_check.rc != 0
+
+  roles:
+    - sfw
+    - claude
+    - python_tools
+    - mcp_servers
+
+  post_tasks:
+    - name: Done
+      ansible.builtin.debug:
+        msg:
+          - "Provisioning complete."
+          - "Restart your shell (or `source ~/.zshrc`) to load sfw aliases."
+          - "Set CONTEXT7_API_KEY before running to wire the Context7 key."
+          - "Run `claude` and authenticate the GitHub MCP plugin if needed."

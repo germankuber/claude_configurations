@@ -1,0 +1,121 @@
+---
+# Register MCP servers with Claude Code (user scope)
+# - codebase-memory  (pnpm global binary)
+# - context7         (npx, with optional API key)
+# - filesystem       (npx, scoped to allowed roots)
+# - github           (official Claude plugin, HTTP remote)
+
+# Shared environment for all `claude` / `pnpm` invocations
+# (pnpm bin + nvm bin so existing/new globals resolve)
+- name: Set claude command environment
+  ansible.builtin.set_fact:
+    claude_env:
+      PATH: "{{ pnpm_home }}:{{ home_dir }}/.local/bin:{{ ansible_env.PATH }}"
+      PNPM_HOME: "{{ pnpm_home }}"
+
+# --- codebase-memory: reinstall under pnpm (remove stray nvm/npm copy) ------
+
+- name: Detect existing codebase-memory-mcp path
+  ansible.builtin.command: which codebase-memory-mcp
+  register: cbm_which
+  changed_when: false
+  failed_when: false
+  environment: "{{ claude_env }}"
+
+- name: Remove codebase-memory-mcp installed outside pnpm (nvm/npm)
+  ansible.builtin.command: npm uninstall -g codebase-memory-mcp
+  register: cbm_npm_remove
+  changed_when: cbm_npm_remove.rc == 0
+  failed_when: false
+  when:
+    - cbm_which.stdout | length > 0
+    - "'.nvm' in cbm_which.stdout"
+
+- name: Install codebase-memory-mcp via pnpm (global)
+  ansible.builtin.command: pnpm add -g codebase-memory-mcp
+  register: cbm_install
+  changed_when: "'already' not in (cbm_install.stdout | lower)"
+  environment: "{{ claude_env }}"
+
+# --- Register MCP servers via `claude mcp add` -----------------------------
+
+- name: List currently registered MCP servers
+  ansible.builtin.command: claude mcp list
+  register: mcp_list
+  changed_when: false
+  failed_when: false
+  environment: "{{ claude_env }}"
+
+# codebase-memory (stdio binary)
+- name: Register codebase-memory MCP
+  ansible.builtin.command: >-
+    claude mcp add --scope {{ mcp_scope }} codebase-memory codebase-memory-mcp
+  register: add_cbm
+  changed_when: "'Added' in add_cbm.stdout"
+  failed_when: add_cbm.rc != 0 and 'already exists' not in (add_cbm.stderr | default(''))
+  when: "'codebase-memory:' not in (mcp_list.stdout | default(''))"
+  environment: "{{ claude_env }}"
+
+# context7 (npx, with API key when provided)
+- name: Register Context7 MCP (with API key)
+  ansible.builtin.command: >-
+    claude mcp add --scope {{ mcp_scope }} context7
+    -- npx -y @upstash/context7-mcp --api-key {{ context7_api_key }}
+  register: add_ctx7_key
+  changed_when: "'Added' in add_ctx7_key.stdout"
+  failed_when: add_ctx7_key.rc != 0 and 'already exists' not in (add_ctx7_key.stderr | default(''))
+  when:
+    - "'context7:' not in (mcp_list.stdout | default(''))"
+    - context7_api_key | length > 0
+  environment: "{{ claude_env }}"
+
+- name: Register Context7 MCP (no API key)
+  ansible.builtin.command: >-
+    claude mcp add --scope {{ mcp_scope }} context7
+    -- npx -y @upstash/context7-mcp
+  register: add_ctx7_nokey
+  changed_when: "'Added' in add_ctx7_nokey.stdout"
+  failed_when: add_ctx7_nokey.rc != 0 and 'already exists' not in (add_ctx7_nokey.stderr | default(''))
+  when:
+    - "'context7:' not in (mcp_list.stdout | default(''))"
+    - context7_api_key | length == 0
+  environment: "{{ claude_env }}"
+
+# filesystem (npx, scoped to allowed roots)
+- name: Register Filesystem MCP
+  ansible.builtin.command: >-
+    claude mcp add --scope {{ mcp_scope }} filesystem
+    -- npx -y @modelcontextprotocol/server-filesystem {{ filesystem_mcp_roots | join(' ') }}
+  register: add_fs
+  changed_when: "'Added' in add_fs.stdout"
+  failed_when: add_fs.rc != 0 and 'already exists' not in (add_fs.stderr | default(''))
+  when: "'filesystem:' not in (mcp_list.stdout | default(''))"
+  environment: "{{ claude_env }}"
+
+# --- GitHub MCP: official Claude plugin (matches current setup) ------------
+
+- name: List installed Claude plugins
+  ansible.builtin.command: claude plugin list
+  register: plugin_list
+  changed_when: false
+  failed_when: false
+  environment: "{{ claude_env }}"
+
+- name: Install GitHub MCP plugin (official)
+  ansible.builtin.command: "claude plugin install {{ github_plugin }}"
+  register: add_gh
+  changed_when: "'installed' in (add_gh.stdout | lower)"
+  failed_when: add_gh.rc != 0 and 'already' not in (add_gh.stdout | lower)
+  when: "'github' not in (plugin_list.stdout | default(''))"
+  environment: "{{ claude_env }}"
+
+- name: Final MCP server list
+  ansible.builtin.command: claude mcp list
+  register: mcp_final
+  changed_when: false
+  failed_when: false
+  environment: "{{ claude_env }}"
+
+- name: Show registered MCP servers
+  ansible.builtin.debug:
+    var: mcp_final.stdout_lines

@@ -1,0 +1,68 @@
+---
+# Python toolchain: python@3.12 + uv + pipx, then Headroom + spec-kit
+
+# --- Base toolchain via Homebrew ------------------------------------------
+
+- name: Install Python toolchain via Homebrew
+  community.general.homebrew:
+    name:
+      - "{{ brew_python_formula }}"
+      - "{{ brew_uv_formula }}"
+      - "{{ brew_pipx_formula }}"
+    state: present
+
+- name: Ensure pipx PATH is configured
+  ansible.builtin.command: pipx ensurepath
+  register: pipx_ensurepath
+  changed_when: "'Success' in pipx_ensurepath.stdout or pipx_ensurepath.rc == 0"
+  failed_when: false
+
+# --- Headroom (context compression) via pipx -------------------------------
+
+- name: Check if headroom is already installed
+  ansible.builtin.command: pipx list --short
+  register: pipx_list
+  changed_when: false
+  failed_when: false
+
+- name: Install Headroom via pipx
+  ansible.builtin.command: "pipx install '{{ headroom_pipx_spec }}'"
+  register: headroom_install
+  changed_when: "'installed package' in headroom_install.stdout | lower"
+  when: "'headroom' not in (pipx_list.stdout | default(''))"
+
+# Register Headroom as an MCP server (its own installer command)
+- name: Register Headroom MCP server
+  ansible.builtin.command: headroom mcp install
+  register: headroom_mcp
+  changed_when: headroom_mcp.rc == 0
+  failed_when: false
+  environment:
+    PATH: "{{ home_dir }}/.local/bin:{{ ansible_env.PATH }}"
+
+# --- spec-kit (specify CLI) via uv -----------------------------------------
+
+- name: Check if specify is already installed
+  ansible.builtin.command: specify --version
+  register: specify_check
+  changed_when: false
+  failed_when: false
+  environment:
+    PATH: "{{ home_dir }}/.local/bin:{{ ansible_env.PATH }}"
+
+- name: Install spec-kit (specify) via uv tool
+  ansible.builtin.command: >-
+    uv tool install specify-cli
+    --from {{ spec_kit_git }}{{ '@' + spec_kit_version if spec_kit_version != 'latest' else '' }}
+  register: specify_install
+  changed_when: "'Installed' in specify_install.stdout or specify_install.rc == 0"
+  when: specify_check.rc != 0
+  environment:
+    PATH: "{{ home_dir }}/.local/bin:{{ ansible_env.PATH }}"
+
+- name: Show Python tools status
+  ansible.builtin.debug:
+    msg:
+      - "uv: installed"
+      - "headroom: installed via pipx"
+      - "specify (spec-kit): installed via uv"
