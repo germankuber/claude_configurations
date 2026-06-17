@@ -12,16 +12,25 @@
 
 set -e
 
+# --- Parse --work / --personal flag before interactive prompts ---------------
+CLAUDE_CONFIG_DIR="$HOME/.claude"
+_new_args=()
+for _arg in "$@"; do
+  case "$_arg" in
+    --work)     CLAUDE_CONFIG_DIR="$HOME/.claude-work" ;;
+    --personal) CLAUDE_CONFIG_DIR="$HOME/.claude" ;;
+    *)          _new_args+=("$_arg") ;;
+  esac
+done
+set -- "${_new_args[@]}"
+export CLAUDE_CONFIG_DIR
+
 BASE_DIR="$HOME/.claude-mcp-data"
 
-# codebase-memory-mcp graph UI (3D knowledge graph) — served while Claude is up.
-# Each Claude instance needs its OWN port (only one process can bind a port),
-# so we pick the first free port from CBM_UI_BASE_PORT upward. This lets you run
-# several `claude-local` consoles at once, each with its own 3D graph.
 CBM_UI_BASE_PORT="${CBM_UI_BASE_PORT:-9749}"
 CBM_BIN="${CBM_BIN:-$HOME/.local/bin/codebase-memory-mcp}"
+AGENT_MONITOR_PORT="${AGENT_MONITOR_PORT:-4820}"
 
-# find_free_port <start> — echo first TCP port >= start that nothing is listening on
 find_free_port() {
   local p=$1
   while lsof -nP -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; do
@@ -32,134 +41,120 @@ find_free_port() {
 
 CBM_UI_PORT="$(find_free_port "$CBM_UI_BASE_PORT")"
 CBM_UI_URL="http://localhost:${CBM_UI_PORT}"
-
-# Claude Code Agent Monitor dashboard (Docker service, if running)
-AGENT_MONITOR_PORT="${AGENT_MONITOR_PORT:-4820}"
 AGENT_MONITOR_URL="http://localhost:${AGENT_MONITOR_PORT}"
 
-# --- Colors (ANSI) ---------------------------------------------------------
-if [[ -t 1 ]]; then
-  RESET=$'\e[0m'; BOLD=$'\e[1m'; DIM=$'\e[2m'
-  RED=$'\e[31m'; GREEN=$'\e[32m'; YELLOW=$'\e[33m'
-  BLUE=$'\e[34m'; MAGENTA=$'\e[35m'; CYAN=$'\e[36m'; GREY=$'\e[90m'
-else
-  RESET=""; BOLD=""; DIM=""; RED=""; GREEN=""; YELLOW=""
-  BLUE=""; MAGENTA=""; CYAN=""; GREY=""
+# --- Require gum for wizard UI ---------------------------------------------
+if ! command -v gum >/dev/null 2>&1; then
+  print "gum is required for this script. Install with:"
+  print "  brew install charmbracelet/tap/gum"
+  exit 1
 fi
 
-ask() { print -n "${BOLD}${CYAN}❯ ${RESET}"; }
-err() { print "${RED}✖ $1${RESET}"; exit 1; }
+# --- Profile label -----------------------------------------------------------
+if [[ "$CLAUDE_CONFIG_DIR" == "$HOME/.claude-work" ]]; then
+  profile_label="WORK"
+else
+  profile_label="PERSONAL"
+fi
 
-# --- 1. Use Headroom? ------------------------------------------------------
-print ""
-print "${BOLD}${MAGENTA}🪄  Do you want to use Headroom?${RESET}"
-print "  ${GREEN}1)${RESET} Yes"
-print "  ${RED}2)${RESET} No"
-ask
-read use_headroom
+# --- Wizard header -----------------------------------------------------------
+clear
+gum style \
+  --border rounded \
+  --border-foreground 99 \
+  --padding "1 4" \
+  --margin "1 2" \
+  --bold \
+  "🤖  claude-local  ·  profile: ${profile_label}  ·  project: $(basename "$PWD")"
 
-# --- 2. Local or global scope? ---------------------------------------------
-print ""
-print "${BOLD}${BLUE}📁  Which data scope?${RESET}"
-print "  ${GREEN}1)${RESET} Local   ${DIM}(this project: $(basename "$PWD"))${RESET}"
-print "  ${GREEN}2)${RESET} Global  ${DIM}(shared across all projects)${RESET}"
-ask
-read scope
+# --- 1. Use Headroom? --------------------------------------------------------
+use_headroom=$(gum choose \
+  --header "🪄  Use Headroom?" \
+  --cursor "❯ " \
+  --cursor.foreground 212 \
+  --selected.foreground 212 \
+  "Yes" "No")
 
-# --- 3. Skip permissions? --------------------------------------------------
-print ""
-print "${BOLD}${YELLOW}🔓  Run with --dangerously-skip-permissions?${RESET}"
-print "  ${YELLOW}1)${RESET} Yes  ${DIM}(no permission prompts -- use with caution)${RESET}"
-print "  ${GREEN}2)${RESET} No   ${DIM}(default, safe)${RESET}"
-ask
-read skip_perms
+# --- 2. Local or global scope? -----------------------------------------------
+scope=$(gum choose \
+  --header "📁  Data scope?" \
+  --cursor "❯ " \
+  --cursor.foreground 75 \
+  --selected.foreground 75 \
+  "Local  (this project: $(basename "$PWD"))" "Global  (shared across all projects)")
 
-# --- 4. Resolve data directory ---------------------------------------------
+# --- 3. Skip permissions? ----------------------------------------------------
+skip_perms=$(gum choose \
+  --header "🔓  Skip permission prompts?" \
+  --cursor "❯ " \
+  --cursor.foreground 214 \
+  --selected.foreground 214 \
+  "Yes  (dangerously-skip-permissions)" "No  (safe, default)")
+
+# --- Resolve scope -----------------------------------------------------------
 case "$scope" in
-  1)
+  Local*)
     project_name="${PWD##*/}"
     data_dir="$BASE_DIR/$project_name"
-    scope_label="${CYAN}LOCAL${RESET} ${DIM}($project_name)${RESET}"
+    scope_label="local ($project_name)"
     ;;
-  2)
+  Global*)
     data_dir="$BASE_DIR/_global"
-    scope_label="${MAGENTA}GLOBAL${RESET}"
-    ;;
-  *)
-    err "Invalid option. Exiting."
+    scope_label="global"
     ;;
 esac
 
-# --- 5. Resolve claude flags -----------------------------------------------
+# --- Resolve claude flags ----------------------------------------------------
 claude_flags=()
 case "$skip_perms" in
-  1)
-    claude_flags+=("--dangerously-skip-permissions")
-    skip_label="${YELLOW}ON${RESET}"
-    ;;
-  2)
-    skip_label="${GREEN}OFF${RESET}"
-    ;;
-  *)
-    err "Invalid option. Exiting."
-    ;;
+  Yes*) claude_flags+=("--dangerously-skip-permissions"); skip_label="ON" ;;
+  No*)  skip_label="OFF" ;;
 esac
 
-# --- 6. Create directories if missing --------------------------------------
+# --- Create directories ------------------------------------------------------
 mkdir -p "$data_dir/cbm" "$data_dir/headroom"
 
-# --- 7. Export env vars for the MCPs ---------------------------------------
+# --- Export env vars ---------------------------------------------------------
 export CBM_DATA_DIR="$data_dir/cbm"
 export HEADROOM_DB_PATH="$data_dir/headroom/memory.db"
 
-# Point this session's codebase-memory graph UI at the free port we found.
-# (config set port is read by the MCP that Claude spawns next.)
 if [[ -x "$CBM_BIN" ]]; then
   "$CBM_BIN" config set port "$CBM_UI_PORT" >/dev/null 2>&1 || true
 fi
 export CBM_UI_PORT
 
-# --- 8. Print config and launch --------------------------------------------
-print ""
-print "${GREY}─────────────────────────────────────────${RESET}"
-print "  ${BOLD}🎯 Scope:${RESET}        $scope_label"
-print "  ${BOLD}🧠 CBM data:${RESET}     ${DIM}$CBM_DATA_DIR${RESET}"
-print "  ${BOLD}💾 Headroom DB:${RESET}  ${DIM}$HEADROOM_DB_PATH${RESET}"
-print "  ${BOLD}🔓 Skip perms:${RESET}   $skip_label"
-print "  ${BOLD}🌐 Graph UI:${RESET}     ${BOLD}${CYAN}\e[4m${CBM_UI_URL}${RESET} ${DIM}(codebase-memory)${RESET}"
-print "  ${BOLD}📊 Agent Monitor:${RESET} ${BOLD}${CYAN}\e[4m${AGENT_MONITOR_URL}${RESET} ${DIM}(dashboard)${RESET}"
+# --- Summary card ------------------------------------------------------------
+echo ""
+gum style \
+  --border normal \
+  --border-foreground 240 \
+  --padding "0 2" \
+  --margin "0 2" \
+  "$(gum style --foreground 245 '👤 Profile:    ')$(gum style --bold --foreground 220 "$profile_label")
+$(gum style --foreground 245 '🎯 Scope:      ')$(gum style --bold --foreground 75 "$scope_label")
+$(gum style --foreground 245 '🔓 Skip perms: ')$(gum style --bold --foreground 214 "$skip_label")
+$(gum style --foreground 245 '🪄 Headroom:   ')$(gum style --bold --foreground 212 "$use_headroom")
+$(gum style --foreground 245 '🌐 Graph UI:   ')$(gum style --foreground 75 "$CBM_UI_URL")
+$(gum style --foreground 245 '📊 Monitor:    ')$(gum style --foreground 75 "$AGENT_MONITOR_URL")"
 
-case "$use_headroom" in
-  1) print "  ${BOLD}🪄 Headroom:${RESET}     ${GREEN}ON ${DIM}(wrap)${RESET}" ;;
-  2) print "  ${BOLD}🪄 Headroom:${RESET}     ${RED}OFF${RESET}" ;;
-  *) err "Invalid Headroom option. Exiting." ;;
-esac
-print "${GREY}─────────────────────────────────────────${RESET}"
-
-# --- Prominent graph-UI banner (this session's own port) -------------------
-print ""
-print "${BOLD}${MAGENTA}╭──────────────────────────────────────────────╮${RESET}"
-print "${BOLD}${MAGENTA}│${RESET}  ${BOLD}🧠 codebase-memory 3D graph for THIS session${RESET}  ${BOLD}${MAGENTA}│${RESET}"
-print "${BOLD}${MAGENTA}│${RESET}     ${BOLD}${CYAN}\e[4m${CBM_UI_URL}${RESET}                  ${BOLD}${MAGENTA}│${RESET}"
-print "${BOLD}${MAGENTA}╰──────────────────────────────────────────────╯${RESET}"
 if [[ "$CBM_UI_PORT" != "$CBM_UI_BASE_PORT" ]]; then
-  print "${DIM}   (port ${CBM_UI_BASE_PORT} was busy — another Claude instance is using it;${RESET}"
-  print "${DIM}    this session got its own port ${CBM_UI_PORT})${RESET}"
+  echo ""
+  gum style --foreground 245 --margin "0 2" \
+    "  (port $CBM_UI_BASE_PORT busy — this session uses $CBM_UI_PORT)"
 fi
-print ""
 
+echo ""
+
+# --- Launch ------------------------------------------------------------------
 case "$use_headroom" in
-  1)
-    print "${GREEN}🚀 Launching Claude Code with Headroom...${RESET}"
-    print ""
-    # --memory + --code-graph + --no-serena are Headroom flags (go BEFORE the
-    # --); everything after -- is passed through to claude.
-    # --no-serena: don't auto-register the Serena MCP (not used in this setup).
+  Yes)
+    gum style --bold --foreground 82 --margin "0 2" "🚀 Launching Claude Code with Headroom..."
+    echo ""
     headroom wrap claude --memory --code-graph --no-serena -- "${claude_flags[@]}" "$@"
     ;;
-  2)
-    print "${GREEN}🚀 Launching Claude Code...${RESET}"
-    print ""
+  No)
+    gum style --bold --foreground 82 --margin "0 2" "🚀 Launching Claude Code..."
+    echo ""
     claude "${claude_flags[@]}" "$@"
     ;;
 esac
