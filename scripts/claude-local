@@ -145,6 +145,18 @@ fi
 
 echo ""
 
+# --- Confirm -----------------------------------------------------------------
+if ! gum confirm \
+  --prompt.foreground 212 \
+  --selected.background 82 --selected.foreground 0 \
+  --unselected.background 0 \
+  "Launch?"; then
+  gum style --foreground 196 --margin "0 2" "Aborted."
+  exit 0
+fi
+
+echo ""
+
 # --- Launch ------------------------------------------------------------------
 case "$use_headroom" in
   Yes)
