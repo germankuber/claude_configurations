@@ -70,6 +70,9 @@ brew_python_formula: "python@3.12"
 brew_uv_formula: "uv"
 # pipx — isolated CLI installs (headroom)
 brew_pipx_formula: "pipx"
+# gum — TUI wizard for claude-local interactive prompts
+brew_gum_tap: "charmbracelet/tap"
+brew_gum_formula: "charmbracelet/tap/gum"
 
 # --- Headroom (context compression) ----------------------------------------
 headroom_pipx_spec: "headroom-ai[all]"
